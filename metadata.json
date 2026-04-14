@@ -1,0 +1,6 @@
+{
+  "name": "SyncSplit: Multi-Monitor Video Player",
+  "description": "A professional video playback tool that splits a single video across three synchronized browser windows for multi-monitor trade show displays.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
