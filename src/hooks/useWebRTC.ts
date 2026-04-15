@@ -17,8 +17,9 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
           candidate: event.candidate,
           from: role === 'controller' ? 'controller' : id
         };
+        const storageKey = `webrtc-signal-${window.location.pathname.replace(/\//g, '-')}`;
         signalingChannel.current?.postMessage(iceMsg);
-        localStorage.setItem('webrtc-signal', JSON.stringify({ ...iceMsg, _ts: Date.now() }));
+        localStorage.setItem(storageKey, JSON.stringify({ ...iceMsg, _ts: Date.now() }));
       }
     };
 
@@ -39,7 +40,10 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
   }, [role, onStream]);
 
   useEffect(() => {
-    const bc = new BroadcastChannel('webrtc-signaling');
+    const channelName = `webrtc-signaling-${window.location.pathname.replace(/\//g, '-')}`;
+    const storageKey = `webrtc-signal-${window.location.pathname.replace(/\//g, '-')}`;
+    
+    const bc = new BroadcastChannel(channelName);
     signalingChannel.current = bc;
 
     const handleSignaling = async (data: any) => {
@@ -69,7 +73,7 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
           await pc.setLocalDescription(answer);
           const response = { type: 'ANSWER', target: 'controller', from: myId, sdp: answer };
           bc.postMessage(response);
-          localStorage.setItem('webrtc-signal', JSON.stringify({ ...response, _ts: Date.now() }));
+          localStorage.setItem(storageKey, JSON.stringify({ ...response, _ts: Date.now() }));
         } else if (type === 'ICE' && target === myId) {
           const pc = pcs.current.get('controller');
           if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -80,7 +84,7 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
     bc.onmessage = (event) => handleSignaling(event.data);
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'webrtc-signal' && event.newValue) {
+      if (event.key === storageKey && event.newValue) {
         try {
           handleSignaling(JSON.parse(event.newValue));
         } catch (e) {}
@@ -93,7 +97,7 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
       const myId = window.name || `player-${params.get('part')}` || 'player-unknown';
       const joinMsg = { type: 'JOIN', from: myId };
       bc.postMessage(joinMsg);
-      localStorage.setItem('webrtc-signal', JSON.stringify({ ...joinMsg, _ts: Date.now() }));
+      localStorage.setItem(storageKey, JSON.stringify({ ...joinMsg, _ts: Date.now() }));
     }
 
     return () => {
@@ -107,6 +111,8 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
   const startStreaming = useCallback(async (stream: MediaStream) => {
     if (role !== 'controller') return;
     
+    const storageKey = `webrtc-signal-${window.location.pathname.replace(/\//g, '-')}`;
+    
     for (const [id, pc] of pcs.current.entries()) {
       if (pc.getSenders().length === 0) {
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
@@ -119,7 +125,7 @@ export function useWebRTC(role: 'controller' | 'player', onStream?: (stream: Med
           sdp: offer
         };
         signalingChannel.current?.postMessage(offerMsg);
-        localStorage.setItem('webrtc-signal', JSON.stringify({ ...offerMsg, _ts: Date.now() }));
+        localStorage.setItem(storageKey, JSON.stringify({ ...offerMsg, _ts: Date.now() }));
       }
     }
   }, [role]);

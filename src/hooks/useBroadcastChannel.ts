@@ -19,8 +19,12 @@ export function useBroadcastChannel(onMessage?: (msg: SyncMessage) => void) {
   }, [onMessage]);
 
   useEffect(() => {
+    // Use a unique channel name based on the pathname to avoid interference on shared domains like github.io
+    const channelName = `sync-split-channel-${window.location.pathname.replace(/\//g, '-')}`;
+    const storageKey = `sync-split-msg-${window.location.pathname.replace(/\//g, '-')}`;
+    
     // 1. BroadcastChannel (Modern)
-    const channel = new BroadcastChannel('sync-split-channel');
+    const channel = new BroadcastChannel(channelName);
     channelRef.current = channel;
 
     const handleBCMessage = (event: MessageEvent<SyncMessage>) => {
@@ -31,7 +35,7 @@ export function useBroadcastChannel(onMessage?: (msg: SyncMessage) => void) {
 
     // 2. LocalStorage (Legacy/Iframe Fallback)
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'sync-split-msg' && event.newValue) {
+      if (event.key === storageKey && event.newValue) {
         try {
           const msg = JSON.parse(event.newValue);
           onMessageRef.current?.(msg);
@@ -51,6 +55,8 @@ export function useBroadcastChannel(onMessage?: (msg: SyncMessage) => void) {
   }, []);
 
   const postMessage = useCallback((msg: SyncMessage) => {
+    const storageKey = `sync-split-msg-${window.location.pathname.replace(/\//g, '-')}`;
+    
     // Send via BroadcastChannel
     try {
       channelRef.current?.postMessage(msg);
@@ -58,7 +64,7 @@ export function useBroadcastChannel(onMessage?: (msg: SyncMessage) => void) {
 
     // Send via LocalStorage (triggers 'storage' event in other windows)
     try {
-      localStorage.setItem('sync-split-msg', JSON.stringify({
+      localStorage.setItem(storageKey, JSON.stringify({
         ...msg,
         _id: Math.random().toString(36).substring(7),
         _ts: Date.now()
